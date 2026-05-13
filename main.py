@@ -8,7 +8,7 @@ app = FastAPI()
 
 # Better Whisper model for Indian languages
 model = WhisperModel(
-    "small",
+    "base",
     device="cpu",
     compute_type="int8"
 )
