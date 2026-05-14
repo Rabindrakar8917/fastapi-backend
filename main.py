@@ -44,6 +44,43 @@ async def translate(req: TranslateRequest):
 # VOICE TRANSLATION
 # ======================================
 
+# @app.post("/translate_voice")
+# async def translate_voice(
+#     audio: UploadFile = File(...)
+# ):
+
+#     audio_path = f"temp_{audio.filename}"
+
+#     with open(audio_path, "wb") as f:
+#         f.write(await audio.read())
+
+#     # Detect speech
+#     segments, info = model.transcribe(
+#         audio_path,
+#         beam_size=5
+#     )
+
+#     original_text = ""
+
+#     for segment in segments:
+#         original_text += segment.text + " "
+
+#     # Translate detected speech
+#     translated = GoogleTranslator(
+#         source='auto',
+#         target='en'
+#     ).translate(original_text)
+
+#     # Delete temp file
+#     os.remove(audio_path)
+
+#     return {
+#         "detected_language": info.language,
+#         "language_probability": info.language_probability,
+#         "original_text": original_text.strip(),
+#         "translated_text": translated
+#     }
+
 @app.post("/translate_voice")
 async def translate_voice(
     audio: UploadFile = File(...)
@@ -54,29 +91,135 @@ async def translate_voice(
     with open(audio_path, "wb") as f:
         f.write(await audio.read())
 
-    # Detect speech
+    # =========================
+    # WHISPER DETECTION
+    # =========================
+
     segments, info = model.transcribe(
         audio_path,
         beam_size=5
     )
+
+    detected_language = info.language
 
     original_text = ""
 
     for segment in segments:
         original_text += segment.text + " "
 
-    # Translate detected speech
+    original_text = original_text.strip()
+
+    # =========================
+    # LANGUAGE NAME MAP
+    # =========================
+
+    language_names = {
+
+        "hi": "Hindi",
+        "kn": "Kannada",
+        "or": "Odia",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "ml": "Malayalam",
+        "bn": "Bengali",
+        "mr": "Marathi",
+        "gu": "Gujarati",
+        "pa": "Punjabi",
+        "ur": "Urdu",
+        "en": "English",
+
+        "ja": "Japanese",
+        "fr": "French",
+        "de": "German",
+        "es": "Spanish",
+        "ar": "Arabic",
+        "ru": "Russian",
+        "zh": "Chinese",
+    }
+
+    # =========================
+    # AUTO TARGET DETECTION
+    # =========================
+
+    # Kannada speaker
+    if detected_language == "kn":
+
+        target_lang = "hi"
+
+    # Hindi speaker
+    elif detected_language == "hi":
+
+        target_lang = "kn"
+
+    # Odia speaker
+    elif detected_language == "or":
+
+        target_lang = "kn"
+
+    # Tamil speaker
+    elif detected_language == "ta":
+
+        target_lang = "hi"
+
+    # Telugu speaker
+    elif detected_language == "te":
+
+        target_lang = "hi"
+
+    # Malayalam speaker
+    elif detected_language == "ml":
+
+        target_lang = "hi"
+
+    # English speaker
+    elif detected_language == "en":
+
+        target_lang = "hi"
+
+    # DEFAULT
+    else:
+
+        target_lang = "en"
+
+    # =========================
+    # TRANSLATION
+    # =========================
+
     translated = GoogleTranslator(
         source='auto',
-        target='en'
+        target=target_lang
     ).translate(original_text)
 
-    # Delete temp file
+    # =========================
+    # CLEANUP
+    # =========================
+
     os.remove(audio_path)
 
+    # =========================
+    # RESPONSE
+    # =========================
+
     return {
-        "detected_language": info.language,
-        "language_probability": info.language_probability,
-        "original_text": original_text.strip(),
-        "translated_text": translated
+
+        "detected_language":
+            detected_language,
+
+        "detected_language_name":
+            language_names.get(
+                detected_language,
+                "Unknown"
+            ),
+
+        "language_probability":
+            info.language_probability,
+
+        "original_text":
+            original_text,
+
+        "translated_text":
+            translated,
+
+        "target_language":
+            target_lang
     }
