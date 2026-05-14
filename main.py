@@ -91,144 +91,216 @@ async def translate_voice(
     with open(audio_path, "wb") as f:
         f.write(await audio.read())
 
-    # =========================
-    # WHISPER DETECTION
-    # =========================
+    try:
 
-    segments, info = model.transcribe(
+        # =========================
+        # WHISPER TRANSCRIBE
+        # =========================
 
-    audio_path,
+        segments, info = model.transcribe(
 
-    beam_size=2,
+            audio_path,
 
-    vad_filter=True,
+            beam_size=2,
 
-    language=None,
+            vad_filter=True,
 
-    condition_on_previous_text=False,
+            language=None,
 
-)
+            condition_on_previous_text=False,
+        )
 
-    detected_language = info.language
+        detected_language = info.language
 
-    original_text = ""
+        probability = info.language_probability
 
-    for segment in segments:
-        original_text += segment.text + " "
+        original_text = ""
 
-    original_text = original_text.strip()
+        for segment in segments:
+            original_text += segment.text + " "
 
-    # =========================
-    # LANGUAGE NAME MAP
-    # =========================
+        original_text = original_text.strip()
 
-    language_names = {
+        lower_text = original_text.lower()
 
-        "hi": "Hindi",
-        "kn": "Kannada",
-        "or": "Odia",
-        "ta": "Tamil",
-        "te": "Telugu",
-        "ml": "Malayalam",
-        "bn": "Bengali",
-        "mr": "Marathi",
-        "gu": "Gujarati",
-        "pa": "Punjabi",
-        "ur": "Urdu",
-        "en": "English",
+        # =========================
+        # DEBUG
+        # =========================
 
-        "ja": "Japanese",
-        "fr": "French",
-        "de": "German",
-        "es": "Spanish",
-        "ar": "Arabic",
-        "ru": "Russian",
-        "zh": "Chinese",
-    }
+        print("LANGUAGE:",
+              detected_language)
 
-    # =========================
-    # AUTO TARGET DETECTION
-    # =========================
+        print("PROBABILITY:",
+              probability)
 
-    # Kannada speaker
-    if detected_language == "kn":
+        print("TEXT:",
+              original_text)
 
-        target_lang = "hi"
+        # =========================
+        # LOW CONFIDENCE FALLBACK
+        # =========================
 
-    # Hindi speaker
-    elif detected_language == "hi":
+        if probability < 0.60:
 
-        target_lang = "kn"
+            detected_language = "hi"
 
-    # Odia speaker
-    elif detected_language == "or":
+        # =========================
+        # INDIAN LANGUAGE FIXES
+        # =========================
 
-        target_lang = "kn"
+        # Kannada keywords
+        if (
+            "gotilla" in lower_text or
+            "illa" in lower_text or
+            "nanage" in lower_text or
+            "hegiddiya" in lower_text or
+            "kannada" in lower_text
+        ):
 
-    # Tamil speaker
-    elif detected_language == "ta":
+            detected_language = "kn"
 
-        target_lang = "hi"
+        # Odia keywords
+        if (
+            "karucha" in lower_text or
+            "mu" in lower_text or
+            "achi" in lower_text or
+            "tame" in lower_text or
+            "odisha" in lower_text
+        ):
 
-    # Telugu speaker
-    elif detected_language == "te":
+            detected_language = "or"
 
-        target_lang = "hi"
+        # Tamil keywords
+        if (
+            "enna" in lower_text or
+            "saptiya" in lower_text or
+            "vanakkam" in lower_text
+        ):
 
-    # Malayalam speaker
-    elif detected_language == "ml":
+            detected_language = "ta"
 
-        target_lang = "hi"
+        # Telugu keywords
+        if (
+            "bagunnava" in lower_text or
+            "enti" in lower_text or
+            "telugu" in lower_text
+        ):
 
-    # English speaker
-    elif detected_language == "en":
+            detected_language = "te"
 
-        target_lang = "hi"
+        # =========================
+        # LANGUAGE NAMES
+        # =========================
 
-    # DEFAULT
-    else:
+        language_names = {
 
-        target_lang = "en"
+            "hi": "Hindi",
+            "kn": "Kannada",
+            "or": "Odia",
+            "ta": "Tamil",
+            "te": "Telugu",
+            "ml": "Malayalam",
+            "bn": "Bengali",
+            "mr": "Marathi",
+            "gu": "Gujarati",
+            "pa": "Punjabi",
+            "ur": "Urdu",
+            "en": "English",
 
-    # =========================
-    # TRANSLATION
-    # =========================
+            "ja": "Japanese",
+            "fr": "French",
+            "de": "German",
+            "es": "Spanish",
+            "ar": "Arabic",
+            "ru": "Russian",
+            "zh": "Chinese",
+        }
 
-    translated = GoogleTranslator(
-        source='auto',
-        target=target_lang
-    ).translate(original_text)
+        # =========================
+        # AUTO TARGET LANGUAGE
+        # =========================
 
-    # =========================
-    # CLEANUP
-    # =========================
+        if detected_language == "kn":
 
-    os.remove(audio_path)
+            target_lang = "hi"
 
-    # =========================
-    # RESPONSE
-    # =========================
+        elif detected_language == "hi":
 
-    return {
+            target_lang = "kn"
 
-        "detected_language":
-            detected_language,
+        elif detected_language == "or":
 
-        "detected_language_name":
-            language_names.get(
+            target_lang = "kn"
+
+        elif detected_language == "ta":
+
+            target_lang = "hi"
+
+        elif detected_language == "te":
+
+            target_lang = "hi"
+
+        elif detected_language == "ml":
+
+            target_lang = "hi"
+
+        elif detected_language == "en":
+
+            target_lang = "hi"
+
+        else:
+
+            target_lang = "en"
+
+        # =========================
+        # TRANSLATION
+        # =========================
+
+        translated = GoogleTranslator(
+
+            source='auto',
+
+            target=target_lang
+
+        ).translate(original_text)
+
+        # =========================
+        # RESPONSE
+        # =========================
+
+        return {
+
+            "detected_language":
                 detected_language,
-                "Unknown"
-            ),
 
-        "language_probability":
-            info.language_probability,
+            "detected_language_name":
+                language_names.get(
+                    detected_language,
+                    "Unknown"
+                ),
 
-        "original_text":
-            original_text,
+            "language_probability":
+                probability,
 
-        "translated_text":
-            translated,
+            "original_text":
+                original_text,
 
-        "target_language":
-            target_lang
-    }
+            "translated_text":
+                translated,
+
+            "target_language":
+                target_lang
+        }
+
+    except Exception as e:
+
+        print("ERROR:", e)
+
+        return {
+            "error": str(e)
+        }
+
+    finally:
+
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
