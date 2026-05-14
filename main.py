@@ -8,7 +8,7 @@ app = FastAPI()
 
 # Better Whisper model for Indian languages
 model = WhisperModel(
-    "tiny",
+    "base",
     device="cpu",
     compute_type="int8"
 )
@@ -99,13 +99,14 @@ async def translate_voice(
 
     audio_path,
 
-    beam_size=5,
+    beam_size=2,
 
     vad_filter=True,
 
-    vad_parameters=dict(
-        min_silence_duration_ms=500
-    )
+    language=None,
+
+    condition_on_previous_text=False,
+
 )
 
     detected_language = info.language
